@@ -1,0 +1,249 @@
+#include "Player.hh"
+#include <list>
+#include <set>
+
+
+/**
+ * Write the name of your player and save this file
+ * with the same name and .cc extension.
+ */
+#define PLAYER_NAME LeBene014
+
+
+struct PLAYER_NAME : public Player {
+
+  /**
+   * Factory: returns a new instance of this class.
+   * Do not modify this function.
+   */
+  static Player* factory () {
+    return new PLAYER_NAME;
+  }
+
+  /**
+   * Types and attributes for your player can be defined here.
+   */
+   typedef vector<vector<Cell>> map_cells;
+
+   map_cells terrain;
+   vector<int> units;
+
+    //Generates a map with the basic data
+   void Get_map() {
+     terrain = map_cells(cols(), vector<Cell>(rows()));
+     for (int i = 0; i < rows(); ++i) {
+       for (int j = 0; j < cols(); ++j) {
+         terrain[i][j] = cell(i, j);
+       }
+     }
+   }
+
+   //Returns the positoin of the nearest city/path
+   Pos bfs(Pos p) {
+     list<Pos> to_visit;
+     set<Pos> visited;
+     to_visit.push_back(p);
+     while (!to_visit.empty()) {
+       Pos t = to_visit.front();
+       to_visit.pop_front();
+       if (visited.find(t) == visited.end()) {
+         //Checks if there's an enemy
+         Cell cell_u = cell(p);
+         if (cell_u.unit_id != -1 and not Unit_is_mine(cell_u.unit_id)) return t;
+         //If found, returns the posiotion
+         if (p != t and (terrain[t.i][t.j].type == CITY or terrain[t.i][t.j].type == PATH)) return t;
+         //If grass adds adjacent postions to check
+         if (terrain[t.i][t.j].type == GRASS) {
+           Pos c;
+           c.i = t.i + 1;
+           c.j = t.j;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i - 1;
+           c.j = t.j;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i;
+           c.j = t.j + 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i;
+           c.j = t.j - 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           visited.insert(t);
+         }
+       }
+     }
+     return p;
+   }
+
+   //Moves the player towards the nearest path/city
+   void Go_closest(Pos pos, int id) {
+     Pos nearest = bfs(pos);
+     if (nearest.i > pos.i) move(id, BOTTOM);
+     else if (nearest.i < pos.i) move(id, TOP);
+     else if (nearest.j > pos.j) move(id, RIGHT);
+     else if (nearest.j < pos.j) move(id, LEFT);
+     else move(id, Dir(random(0, DIR_SIZE - 1)));
+   }
+
+   //Returns the positoin of the nearest enemy
+   Pos bfs_attack(Pos p) {
+     list<Pos> to_visit;
+     set<Pos> visited;
+     to_visit.push_back(p);
+     while (!to_visit.empty()) {
+       Pos t = to_visit.front();
+       to_visit.pop_front();
+       if (visited.find(t) == visited.end()) {
+         //Checks if there's an enemy
+         Cell cell_u = cell(p);
+         if (cell_u.unit_id != -1 and not Unit_is_mine(cell_u.unit_id)) return t;
+         //If found, returns the posiotion
+         //if (p != t and (terrain[t.i][t.j].type == CITY or terrain[t.i][t.j].type == PATH)) return t;
+         //If grass adds adjacent postions to check
+         if (terrain[t.i][t.j].type == GRASS) {
+           Pos c;
+           c.i = t.i + 1;
+           c.j = t.j;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i - 1;
+           c.j = t.j;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i;
+           c.j = t.j + 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i;
+           c.j = t.j - 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           visited.insert(t);
+         }
+       }
+     }
+     return p;
+   }
+
+   //Moves the player towards the nearest path/city
+   void Go_closest_attack(Pos pos, int id) {
+     Pos nearest = bfs_attack(pos);
+     if (nearest.i > pos.i) move(id, BOTTOM);
+     else if (nearest.i < pos.i) move(id, TOP);
+     else if (nearest.j > pos.j) move(id, RIGHT);
+     else if (nearest.j < pos.j) move(id, LEFT);
+     else move(id, Dir(random(0, DIR_SIZE - 1)));
+   }
+
+   //Returns the positoin of the nearest city/path
+   Pos bfs_infected(Pos p) {
+     list<Pos> to_visit;
+     set<Pos> visited;
+     to_visit.push_back(p);
+     while (!to_visit.empty()) {
+       Pos t = to_visit.front();
+       to_visit.pop_front();
+       if (visited.find(t) == visited.end()) {
+         //Checks if there's an enemy
+         Cell cell_u = cell(p);
+         if (cell_u.unit_id != -1 and not Unit_is_mine(cell_u.unit_id)) return t;
+         //If found, returns the posiotion of the nearest city wich is not mine
+         if (p != t) {
+           Cell cell_to_check = cell(t);
+           if (terrain[t.i][t.j].type == CITY and city_owner(cell_to_check.city_id) != me()) return t;
+           if (terrain[t.i][t.j].type == PATH and path_owner(cell_to_check.path_id) != me()) return t;
+         }
+         //If grass adds adjacent postions to check
+         if (terrain[t.i][t.j].type == GRASS) {
+           Pos c;
+           c.i = t.i + 1;
+           c.j = t.j;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i - 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.i = t.i;
+           c.j = t.j + 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           c.j = t.j - 1;
+           if (terrain[c.i][c.j].type != WALL) to_visit.push_back(c);
+           visited.insert(t);
+         }
+       }
+     }
+     return p;
+   }
+
+   //Moves the player towards the nearest path/city
+   void Go_closest_infected(Pos pos, int id) {
+     Pos nearest = bfs_infected(pos);
+     if (nearest.i > pos.i) move(id, BOTTOM);
+     else if (nearest.i < pos.i) move(id, TOP);
+     else if (nearest.j > pos.j) move(id, RIGHT);
+     else if (nearest.j < pos.j) move(id, LEFT);
+     else move(id, Dir(random(0, DIR_SIZE - 1)));
+   }
+
+   //Returns if a unit is mine
+   bool Unit_is_mine(int id) {
+     for (int i = 0; i < units.size(); ++i) {
+       if (id == units[i]) return true;
+     }
+     return false;
+   }
+
+   bool moved_to_enemy(Unit u) {
+    Pos p = u.pos;
+    Cell c;
+    //Bottom
+    p.i = p.i + 1;
+    c = cell(p);
+    if (c.unit_id != -1 and not Unit_is_mine(c.unit_id)) {
+      move(u.id, BOTTOM);
+      return true;
+    }
+    //Top
+    p.i = u.pos.i - 1;
+    c = cell(p);
+    if (c.unit_id != -1 and not Unit_is_mine(c.unit_id)) {
+      move(u.id, TOP);
+      return true;
+    }
+    //Right
+    p.i = u.pos.i;
+    p.j = u.pos.j + 1;
+    c = cell(p);
+    if (c.unit_id != -1 and not Unit_is_mine(c.unit_id)) {
+      move(u.id, RIGHT);
+      return true;
+    }
+    //Left
+    p.j = u.pos.j - 1;
+    c = cell(p);
+    if (c.unit_id != -1 and not Unit_is_mine(c.unit_id)) {
+      move(u.id, LEFT);
+      return true;
+    }
+     return false;
+   }
+
+  /**
+   * Play method, invoked once per each round.
+   */
+  virtual void play () {
+    //The first round generates a map
+    if (round() == 0) Get_map();
+    units = my_units(me());
+    for (int i = 0; i < units.size(); ++i) {
+      Unit u = unit(units[i]);
+      //Check if can attack
+      if (not moved_to_enemy(u)) {
+        //Go to the closest city/path
+        if (u.damage > 0)Go_closest_infected(u.pos, units[i]);
+        else if (i%5 == 0) Go_closest_attack(u.pos, units[i]);
+        else Go_closest(u.pos, units[i]);
+      }
+    }
+  }
+
+};
+
+
+/**
+ * Do not modify the following line.
+ */
+RegisterPlayer(PLAYER_NAME);
